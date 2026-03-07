@@ -27,6 +27,7 @@ export const register = async (req, res) => {
 // @route   POST /api/auth/login
 // @access  Public
 export const login = async (req, res) => {
+  console.log("Login request received with body:", req.body);
   try {
     const { email, password } = req.body;
 
