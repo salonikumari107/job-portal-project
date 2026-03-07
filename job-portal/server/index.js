@@ -37,7 +37,7 @@ app.use(express.urlencoded({ extended: true }));
 
 const allowedOrigins = [
   "http://localhost:5173", // local dev
-  "salonikumari107-job-portal-project-mr22rmejm.vercel.app" // deployed
+  "https://salonikumari107-job-portal-project.vercel.app" // deployed
 ];
 
 app.use(cors({
