@@ -26,7 +26,6 @@ const Auth = ({ onLoginSuccess, setUserRole }) => {
 
     // --- FORGOT PASSWORD LOGIC ---
     if (isForgotPass) {
-      // Not implemented in backend yet, just show simulated success
       setSuccessMsg("RESET LINK SENT TO YOUR REGISTERED EMAIL.");
       setTimeout(() => setIsForgotPass(false), 3000);
       return;
@@ -34,9 +33,12 @@ const Auth = ({ onLoginSuccess, setUserRole }) => {
 
     try {
       if (isLogin) {
-        // --- LOGIN LOGIC ---
-        const res = await api.post('/auth/login', { email, password });
+        // --- LOGIN LOGIC (Token Saving Added) ---
+        const res = await api.post('/auth/login', { email, password, role });
         if (res.data.success) {
+          // ADDED: Save token to localStorage for future API calls
+          localStorage.setItem("token", res.data.token); 
+          
           authLogin(res.data.user, res.data.token);
           setUserRole(res.data.user.role);
           onLoginSuccess(res.data.user);
@@ -86,7 +88,6 @@ const Auth = ({ onLoginSuccess, setUserRole }) => {
             </div>
           )}
 
-          {/* EMAIL INPUT (With name="email" for browser autocomplete/selection) */}
           <div className="relative">
             <Mail className="absolute left-5 top-1/2 -translate-y-1/2 text-slate-300" size={18} />
             <input 

@@ -1,155 +1,129 @@
-import React, { useState } from 'react';
-import { Send, MapPin, IndianRupee, Briefcase, GraduationCap, Zap, Navigation } from 'lucide-react';
-import api from '../api/axios';
-import toast from 'react-hot-toast';
+import React, { useState } from "react";
+import api from "../api/axios"; // Updated axios instance with HTTPS support
+import toast from "react-hot-toast";
 
 const PostJob = () => {
-  const [jobType, setJobType] = useState('Full-time'); // Default Category mapped to model
-  const [formData, setFormData] = useState({
-    title: "",
-    location: "",
-    salaryRange: "",
-    description: "",
-    company: "",
-    coordinates: null
-  });
+  // 1. Puraani States aur Fields (Merge kiya gaya design)
+  const [title, setTitle] = useState("");
+  const [description, setDescription] = useState("");
+  const [category, setCategory] = useState("");
+  const [country, setCountry] = useState("");
+  const [city, setCity] = useState("");
+  const [location, setLocation] = useState("");
+  const [fixedPrice, setFixedPrice] = useState("");
 
-  const fetchCoordinates = () => {
-    if (!navigator.geolocation) {
-      toast.error("Geolocation is not supported");
-      return;
-    }
-    navigator.geolocation.getCurrentPosition((position) => {
-      setFormData({
-        ...formData,
-        coordinates: {
-          type: 'Point',
-          coordinates: [position.coords.longitude, position.coords.latitude]
-        }
-      });
-      toast.success("Coordinates Linked!");
-    });
-  };
+  // 2. Integration Logic (Backend Connection)
+  const handleJobPost = async (e) => {
+    e.preventDefault();
 
-  const handlePost = async () => {
+    // Data object taiyar karein jo backend mang raha hai
+    const jobData = {
+      title,
+      description,
+      category,
+      country,
+      city,
+      location,
+      fixedPrice: Number(fixedPrice), // Price ko hamesha number mein bhejein
+    };
+
     try {
-      const res = await api.post('/jobs', {
-        ...formData,
-        jobType,
-        company: formData.company || "My Company" 
-      });
-      if (res.data.success) {
-        toast.success("JOB BROADCASTED!");
-        setFormData({ title: "", location: "", salaryRange: "", description: "", company: "", coordinates: null });
-      }
-    } catch (err) {
-      toast.error(err.response?.data?.message || "Error posting job");
-    }
-  };
+      // Axios interceptor apne aap localStorage se token utha kar header mein bhej dega
+      const res = await api.post("/job/post", jobData);
 
-  const mapType = (type) => {
-    if (type === 'JOB') return 'Full-time';
-    if (type === 'TRAINING') return 'Internship';
-    if (type === 'INTERNSHIP') return 'Internship';
-    return type;
+      if (res.data.success) {
+        toast.success(res.data.message || "Job Posted Successfully!");
+        
+        // Form ko khali karna (Reset)
+        setTitle("");
+        setDescription("");
+        setCategory("");
+        setCountry("");
+        setCity("");
+        setLocation("");
+        setFixedPrice("");
+      }
+    } catch (error) {
+      // Backend se aane wala error (jaise: "Only recruiter can post")
+      const errorMsg = error.response?.data?.message || "Post fail ho gaya!";
+      toast.error(errorMsg);
+    }
   };
 
   return (
-    <div className="max-w-5xl space-y-10 animate-in fade-in duration-700">
-      {/* CATEGORY SELECTOR TABS */}
-      <div className="grid grid-cols-3 gap-6">
-        <button 
-          onClick={() => setJobType('Full-time')}
-          className={`p-8 rounded-[2.5rem] flex flex-col items-center gap-3 transition-all shadow-sm ${jobType === 'Full-time' ? 'bg-orange-600 text-white scale-105 shadow-orange-200' : 'bg-white text-slate-400 border border-slate-100 hover:bg-slate-50'}`}
-        >
-          <Briefcase size={32} />
-          <span className="font-black italic uppercase text-[10px] tracking-widest">Post Full Job</span>
-        </button>
-
-        <button 
-          onClick={() => setJobType('Internship')}
-          className={`p-8 rounded-[2.5rem] flex flex-col items-center gap-3 transition-all shadow-sm ${jobType === 'Internship' ? 'bg-blue-600 text-white scale-105 shadow-blue-200' : 'bg-white text-slate-400 border border-slate-100 hover:bg-slate-50'}`}
-        >
-          <GraduationCap size={32} />
-          <span className="font-black italic uppercase text-[10px] tracking-widest">Post Training</span>
-        </button>
-
-        <button 
-          onClick={() => setJobType('Freelance')}
-          className={`p-8 rounded-[2.5rem] flex flex-col items-center gap-3 transition-all shadow-sm ${jobType === 'Freelance' ? 'bg-indigo-600 text-white scale-105 shadow-indigo-200' : 'bg-white text-slate-400 border border-slate-100 hover:bg-slate-50'}`}
-        >
-          <Zap size={32} />
-          <span className="font-black italic uppercase text-[10px] tracking-widest">Post Freelance</span>
-        </button>
-      </div>
-
-      {/* INPUT FORM SECTION */}
-      <div className="bg-slate-50/50 p-10 rounded-[4rem] border border-slate-100 space-y-6">
-        <div className="space-y-4">
-          <input 
-            type="text" 
-            placeholder={`Title of ${jobType}...`} 
-            value={formData.title}
-            onChange={e => setFormData({...formData, title: e.target.value})}
-            className="w-full p-8 bg-white rounded-[2rem] font-black italic text-xl uppercase tracking-tighter outline-none border-2 border-transparent focus:border-blue-100 shadow-sm transition-all"
-          />
-
-          <input 
-            type="text" 
-            placeholder="Company Name" 
-            value={formData.company}
-            onChange={e => setFormData({...formData, company: e.target.value})}
-            className="w-full p-4 bg-white rounded-[1.5rem] font-bold text-sm outline-none border-2 border-transparent focus:border-blue-100 shadow-sm"
-          />
-
-          <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-            {/* LOCATION ENABLED */}
-            <div className="flex gap-2">
-              <div className="relative flex-1">
-                <MapPin className="absolute left-6 top-1/2 -translate-y-1/2 text-slate-300" size={20} />
-                <input 
-                  type="text" 
-                  placeholder="Location (e.g. Remote, Mumbai)" 
-                  value={formData.location}
-                  onChange={e => setFormData({...formData, location: e.target.value})}
-                  className="w-full pl-16 p-6 bg-white rounded-[1.8rem] font-bold text-sm outline-none border-2 border-transparent focus:border-blue-100 shadow-sm"
-                />
-              </div>
-              <button 
-                onClick={fetchCoordinates}
-                className={`p-6 rounded-[1.8rem] transition-all ${formData.coordinates ? 'bg-blue-600 text-white' : 'bg-white text-slate-400 border border-slate-100'}`}
-                title="Use Current GPS Coordinates"
-              >
-                <Navigation size={20} />
-              </button>
-            </div>
-
-            {/* SALARY/STIPEND ENABLED */}
-            <div className="relative">
-              <IndianRupee className="absolute left-6 top-1/2 -translate-y-1/2 text-slate-300" size={20} />
-              <input 
-                type="text" 
-                placeholder={jobType === 'Full-time' ? "Package (e.g. 15-22 LPA)" : "Stipend (e.g. 15k/mo)"} 
-                value={formData.salaryRange}
-                onChange={e => setFormData({...formData, salaryRange: e.target.value})}
-                className="w-full pl-16 p-6 bg-white rounded-[1.8rem] font-bold text-sm outline-none border-2 border-transparent focus:border-blue-100 shadow-sm"
-              />
-            </div>
+    <section className="job_post page">
+      <div className="container">
+        <h3>POST NEW JOB</h3>
+        <form onSubmit={handleJobPost}>
+          <div className="wrapper">
+            <input
+              type="text"
+              value={title}
+              onChange={(e) => setTitle(e.target.value)}
+              placeholder="Job Title"
+              required
+            />
+            <select
+              value={category}
+              onChange={(e) => setCategory(e.target.value)}
+              required
+            >
+              <option value="">Select Category</option>
+              <option value="Graphics & Design">Graphics & Design</option>
+              <option value="Mobile App Development">Mobile App Development</option>
+              <option value="Frontend Web Development">Frontend Web Development</option>
+              <option value="MERN Stack Development">MERN Stack Development</option>
+              <option value="Video Animation">Video Animation</option>
+            </select>
           </div>
 
-          <textarea 
-            placeholder="Node Description & Requirements..." 
-            value={formData.description}
-            onChange={e => setFormData({...formData, description: e.target.value})}
-            className="w-full p-8 bg-white rounded-[2.5rem] h-40 outline-none font-bold text-sm resize-none border-2 border-transparent focus:border-blue-100 shadow-sm"
-          ></textarea>
-        </div>
+          <div className="wrapper">
+            <input
+              type="text"
+              value={country}
+              onChange={(e) => setCountry(e.target.value)}
+              placeholder="Country"
+              required
+            />
+            <input
+              type="text"
+              value={city}
+              onChange={(e) => setCity(e.target.value)}
+              placeholder="City"
+              required
+            />
+          </div>
 
-        <button onClick={handlePost} className="w-full py-8 bg-slate-900 text-white rounded-[2rem] font-black uppercase tracking-[0.3em] text-xs flex items-center justify-center gap-4 hover:bg-black transition-all shadow-2xl active:scale-95">
-          <Send size={18} /> Broadcast {jobType} Node
-        </button>
+          <input
+            type="text"
+            value={location}
+            onChange={(e) => setLocation(e.target.value)}
+            placeholder="Location Details (Street, Building...)"
+            required
+          />
+
+          <div className="salary_wrapper">
+            <input
+              type="number"
+              value={fixedPrice}
+              onChange={(e) => setFixedPrice(e.target.value)}
+              placeholder="Enter Fixed Price (INR)"
+              required
+            />
+          </div>
+
+          <textarea
+            rows="10"
+            value={description}
+            onChange={(e) => setDescription(e.target.value)}
+            placeholder="Job Description (Skills, Experience, etc.)"
+            required
+          />
+
+          <button type="submit">Create Job</button>
+        </form>
       </div>
-    </div>
+    </section>
   );
 };
 

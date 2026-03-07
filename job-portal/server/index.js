@@ -33,8 +33,26 @@ app.use(express.json());
 app.use(express.urlencoded({ extended: true }));
 
 // CORS
-app.use(cors());
 
+
+const allowedOrigins = [
+  "http://localhost:5173", // local dev
+  "salonikumari107-job-portal-project-mr22rmejm.vercel.app" // deployed
+];
+
+app.use(cors({
+  origin: function(origin, callback){
+    // allow requests with no origin (like Postman)
+    if(!origin) return callback(null, true);
+    if(allowedOrigins.indexOf(origin) === -1){
+      const msg = 'The CORS policy for this site does not allow access from the specified Origin.';
+      return callback(new Error(msg), false);
+    }
+
+    return callback(null, true);
+  },
+  credentials: true
+}));
 // Set static folder
 app.use('/uploads', express.static(path.join(__dirname, 'uploads')));
 
@@ -52,6 +70,10 @@ app.use('/api/users', userRoutes);
 app.get('/', (req, res) => {
   res.send('API is running...');
 });
+app.get('/api', (req, res) => {
+  res.send('API is running...');
+});
+
 
 const PORT = process.env.PORT || 5000;
 
