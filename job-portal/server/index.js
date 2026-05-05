@@ -1,82 +1,62 @@
 import express from 'express';
 import dotenv from 'dotenv';
 import cors from 'cors';
-import morgan from 'morgan';
-import connectDB from './config/db.js';
+import cookieParser from 'cookie-parser';
 import path from 'path';
-import fs from 'fs';
-import { fileURLToPath } from 'url';
+import fs from 'fs'; 
+import morgan from 'morgan';
+import { fileURLToPath } from 'url'; 
+import mongoose from 'mongoose';
+
+dotenv.config(); 
+
 import authRoutes from './routes/authRoutes.js';
 import jobRoutes from './routes/jobRoutes.js';
 import applicationRoutes from './routes/applicationRoutes.js';
-import userRoutes from './routes/userRoutes.js';
-
-// Load env vars
-dotenv.config();
-
-// Connect to database
-connectDB();
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
 
-// Create uploads folder if not exists
-const uploadDir = path.join(__dirname, 'uploads');
-if (!fs.existsSync(uploadDir)) {
-  fs.mkdirSync(uploadDir);
-}
-
 const app = express();
 
-// Body parser
-app.use(express.json());
-app.use(express.urlencoded({ extended: true }));
-
-// CORS
-
-
-const allowedOrigins = [
-  "http://localhost:5173", // local dev
-  "https://job-portal-project-1-7llf.onrender.com" // deployed
-];
-
-app.use(cors({
-  origin: function(origin, callback){
-    // allow requests with no origin (like Postman)
-    if(!origin) return callback(null, true);
-    if(allowedOrigins.indexOf(origin) === -1){
-      const msg = 'The CORS policy for this site does not allow access from the specified Origin.';
-      return callback(new Error(msg), false);
+// --- DATABASE CONNECTION ---
+const connectDB = async () => {
+    try {
+        // Aapki current configuration ke hisaab se MONGO_URI env se li gayi hai
+        await mongoose.connect(process.env.MONGO_URI);
+        console.log("✅ MongoDB Connected Successfully!");
+    } catch (error) {
+        console.error("❌ MongoDB Error:", error.message);
+        process.exit(1);
     }
+};
 
-    return callback(null, true);
-  },
-  credentials: true
+connectDB(); 
+
+// --- MIDDLEWARES ---
+app.use(cors({
+    origin: ["http://localhost:5173", "http://localhost:5174"], 
+    credentials: true, 
+    methods: ["GET", "POST", "PUT", "DELETE"],
+    allowedHeaders: ["Content-Type", "Authorization"]
 }));
-// Set static folder
+
+app.use(morgan('dev'));
+app.use(express.json());
+app.use(cookieParser()); 
+
+// ✅ STATIC FILES SETUP (Resume View karne ke liye zaroori hai)
+// Isse http://localhost:8001/uploads/filename.pdf wala path kaam karne lagega
 app.use('/uploads', express.static(path.join(__dirname, 'uploads')));
 
-// Logging
-if (process.env.NODE_ENV === 'development') {
-  app.use(morgan('dev'));
-}
+// --- ROUTES ---
+// Frontend ke sath match karne ke liye /v1 prefix ka use kiya gaya hai
+app.use('/api/v1/auth', authRoutes);
+app.use('/api/v1/jobs', jobRoutes);
+app.use('/api/v1/application', applicationRoutes); 
 
-// Routes
-app.use('/api/auth', authRoutes);
-app.use('/api/jobs', jobRoutes);
-app.use('/api/applications', applicationRoutes);
-app.use('/api/users', userRoutes);
-
-app.get('/', (req, res) => {
-  res.send('API is running...');
-});
-app.get('/api', (req, res) => {
-  res.send('API is running...');
-});
-
-
-const PORT = process.env.PORT || 5000;
-
+// --- SERVER START ---
+const PORT = process.env.PORT || 8001; 
 app.listen(PORT, () => {
-  console.log(`Server running in ${process.env.NODE_ENV} mode on port ${PORT}`);
+  console.log(`🚀 SERVER RUNNING ON PORT: ${PORT}`);
 });

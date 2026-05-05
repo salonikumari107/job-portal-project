@@ -1,167 +1,151 @@
-import React, { useState, useEffect } from 'react';
-import { BrowserRouter as Router, Routes, Route, Navigate, Link, useLocation, useNavigate } from 'react-router-dom';
-import { Menu } from 'lucide-react';
-import Auth from './components/Auth';
-import Sidebar from './components/Sidebar';
-import Profile from './components/Profile';
-import FindJob from './components/FindJob';
-import Wishlist from './components/Wishlist';
-import AppStatus from './components/AppStatus';
-import RecruiterDash from './components/RecruiterDash';
-import PostJob from './components/PostJob';
-import { useAuth } from './context/AuthContext';
+import React, { useState, useEffect, useCallback, useMemo } from 'react';
+import { BrowserRouter as Router, Routes, Route, Navigate, useNavigate } from 'react-router-dom';
 import api from './api/axios';
+import WelcomePage from './components/WelcomePage';
+import Auth from './components/Auth';
+import ForgotPassword from './pages/ForgotPassword'; // Naya Import
+import ResetPassword from './pages/ResetPassword';   // Naya Import
+import RecruiterProfile from './components/RecruiterProfile'; 
+import JobSeekerProfile from './components/JobSeekerProfile';
+import Sidebar from './components/Sidebar';
+import PostJob from './components/PostJob'; 
+import FindJob from './components/FindJob';
+import JobDetails from './components/JobDetails'; 
+import ResumeBuilder from './components/ResumeBuilder/ResumeBuilder';
+import CandidateHub from './components/CandidateHub'; 
+import ManageJobs from './components/ManageJobs'; 
+import StatusTracker from './components/StatusTracker'; 
+import JobMap from './components/JobMap'; 
+import { useAuth } from './context/AuthContext';
 import { Toaster } from 'react-hot-toast';
 
 const AppContent = () => {
-  const { user, logout, loading } = useAuth();
+  const { user, logout, loading: authLoading } = useAuth();
   const navigate = useNavigate();
-  const location = useLocation();
-  const [userRole, setUserRole] = useState('seeker'); 
-  const [savedJobs, setSavedJobs] = useState([]);
-  const [userData, setUserData] = useState(null);
-  const [jobDatabase, setJobDatabase] = useState([]);
-  const [applications, setApplications] = useState([]);
 
+  // --- Leaflet CSS Injector ---
   useEffect(() => {
-    if (user) {
-      setUserRole(user.role);
-      setUserData(user);
-      fetchJobs();
-      if (user.role === 'seeker') {
-        fetchMyApplications();
-      } else if (user.role === 'recruiter') {
-        fetchRecruiterApplications();
+    const link = document.createElement('link');
+    link.rel = 'stylesheet';
+    link.href = 'https://unpkg.com/leaflet@1.9.4/dist/leaflet.css';
+    link.integrity = 'sha256-p4NxAoJBhIIN+hmNHrzRCf9tD/miZyoHS5obTRR9BMY=';
+    link.crossOrigin = '';
+    document.head.appendChild(link);
+  }, []);
+
+  const [userData, setUserData] = useState({
+    skills: [],
+    experience: [],
+    name: "",
+    summary: "",
+    email: ""
+  });
+  
+  const [dataLoading, setDataLoading] = useState(false); 
+  const [activeTab, setActiveTab] = useState('profile');
+
+  const currentUserRole = useMemo(() => {
+    const role = user?.role?.toString().toLowerCase().trim();
+    return role;
+  }, [user]);
+
+  const isRecruiter = currentUserRole === 'recruiter';
+  const isSeeker = currentUserRole === 'seeker' || currentUserRole === 'jobseeker';
+
+  const fetchUserData = useCallback(async () => {
+    if (!user) return;
+    setDataLoading(true);
+    try {
+      const res = await api.get("/auth/me");
+      if (res.data.success) {
+        const finalData = res.data.data || res.data.user;
+        setUserData({
+          ...finalData,
+          skills: finalData?.skills || [],
+          experience: finalData?.experience || []
+        });
       }
+    } catch (error) {
+      console.error("User fetch error:", error);
+    } finally {
+      setDataLoading(false);
     }
   }, [user]);
 
-  const fetchJobs = async () => {
-    try {
-      const res = await api.get('/jobs');
-      setJobDatabase(res.data.data);
-    } catch (err) {
-      console.error(err);
+  useEffect(() => {
+    if (user && !userData.email && !authLoading) {
+      fetchUserData();
     }
-  };
-
-  const fetchMyApplications = async () => {
-    try {
-      const res = await api.get('/applications/my-applications');
-      setApplications(res.data.data.map(app => ({
-        id: app._id,
-        candidateName: user.name,
-        role: app.job.title,
-        company: app.job.company,
-        status: app.status.toUpperCase(),
-        type: app.job.jobType
-      })));
-    } catch (err) {
-      console.error(err);
-    }
-  };
-
-  const fetchRecruiterApplications = async () => {
-    try {
-      const res = await api.get('/applications/recruiter/all');
-      setApplications(res.data.data.map(app => ({
-        id: app._id,
-        candidateName: app.seeker.name,
-        email: app.seeker.email,
-        mobile: app.seeker.mobile,
-        education: app.seeker.education,
-        experience: app.seeker.experience,
-        resume: app.resume,
-        role: app.job.title,
-        company: app.job.company,
-        status: app.status.toUpperCase(),
-        type: app.job.jobType
-      })));
-    } catch (err) {
-      console.error(err);
-    }
-  };
-
-  const updateStatus = async (id, newStatus) => {
-    try {
-      const res = await api.put(`/applications/${id}/status`, { status: newStatus });
-      if (res.data.success) {
-        setApplications(prev => prev.map(app => app.id === id ? { ...app, status: newStatus.toUpperCase() } : app));
-      }
-    } catch (err) {
-      console.error(err);
-    }
-  };
-
-  const toggleWishlist = (id) => {
-    setSavedJobs(prev => prev.includes(id) ? prev.filter(i => i !== id) : [...prev, id]);
-  };
+  }, [user, authLoading, fetchUserData, userData.email]);
 
   const handleLogout = () => {
     logout();
-    navigate('/auth');
+    setUserData({ skills: [], experience: [], name: "", summary: "" });
+    navigate('/auth'); 
   };
 
-  if (loading) return null;
-
-  const [sidebarOpen, setSidebarOpen] = useState(false);
-
-  // ... (existing effects)
+  if (authLoading) {
+    return <div className="h-screen w-full flex items-center justify-center font-bold text-blue-600">Orbiting...</div>;
+  }
 
   return (
-    <div className="h-screen w-full bg-white flex overflow-hidden relative">
-      <Toaster position="top-right" />
-      {!user ? (
-        <Routes>
-          <Route path="/auth" element={<Auth onLoginSuccess={(data) => {setUserData(data); navigate('/');}} setUserRole={setUserRole} />} />
-          <Route path="*" element={<Navigate to="/auth" />} />
-        </Routes>
-      ) : (
-        <div className="flex w-full h-full relative">
-          <Sidebar 
-            userRole={userRole} 
-            savedCount={savedJobs.length} 
-            onLogout={handleLogout} 
-            isOpen={sidebarOpen} 
-            onClose={() => setSidebarOpen(false)}
-          />
-          
-          <main className="flex-1 overflow-y-auto p-6 md:p-12 w-full relative">
-            {/* Mobile Header */}
-            <div className="md:hidden flex items-center justify-between mb-8">
-              <h1 className="text-xl font-black italic uppercase tracking-tighter">Job Orbit.</h1>
-              <button 
-                onClick={() => setSidebarOpen(true)}
-                className="p-2 bg-slate-50 rounded-xl hover:bg-slate-100 transition-all"
-              >
-                <Menu size={24}/>
-              </button>
-            </div>
+    <div className="h-screen w-full flex overflow-hidden bg-white">
+      <Toaster position="top-center" />
 
-            <Routes>
-              <Route path="/profile" element={<Profile role={userRole} data={userData} setData={setUserData} />} />
-              
-              {userRole === 'seeker' && (
-                <>
-                  <Route path="/find-job" element={<FindJob jobs={jobDatabase} savedJobs={savedJobs} toggleWishlist={toggleWishlist} />} />
-                  <Route path="/wishlist" element={<Wishlist jobs={jobDatabase} savedJobs={savedJobs} toggleWishlist={toggleWishlist} />} />
-                  <Route path="/app-status" element={<AppStatus applications={applications} />} />
-                  <Route path="/" element={<Navigate to="/profile" />} />
-                </>
-              )}
-              
-              {userRole === 'recruiter' && (
-                <>
-                  <Route path="/rec-dash" element={<RecruiterDash applications={applications} updateStatus={updateStatus} />} />
-                  <Route path="/post-job" element={<PostJob />} />
-                  <Route path="/" element={<Navigate to="/profile" />} />
-                </>
-              )}
-              <Route path="*" element={<Navigate to="/" />} />
-            </Routes>
-          </main>
-        </div>
+      {user && userData.email && (
+        <Sidebar 
+          userRole={currentUserRole}
+          onLogout={handleLogout} 
+          activeTab={activeTab} 
+          setActiveTab={setActiveTab} 
+          savedCount={userData?.savedJobs?.length || 0}
+        />
       )}
+
+      <main className="flex-1 relative overflow-y-auto bg-gray-50">
+        <Routes>
+          <Route path="/" element={!user ? <WelcomePage onGetStarted={() => navigate('/auth')} /> : <Navigate to="/profile" />} />
+          <Route path="/auth" element={!user ? <Auth /> : <Navigate to="/profile" />} />
+          
+          {/* Public Password Recovery Routes (Login ke bina access ho sakein) */}
+          <Route path="/forgot-password" element={!user ? <ForgotPassword /> : <Navigate to="/profile" />} />
+          <Route path="/reset-password/:token" element={!user ? <ResetPassword /> : <Navigate to="/profile" />} />
+
+          {/* Protected Profile Route */}
+          <Route path="/profile" element={
+            user ? (
+              dataLoading ? (
+                <div className="p-10 text-center font-bold animate-pulse">Initializing Orbit Data...</div>
+              ) : (
+                isRecruiter 
+                  ? <RecruiterProfile userData={userData} refreshData={fetchUserData} /> 
+                  : <JobSeekerProfile profileData={userData} setProfileData={setUserData} />
+              )
+            ) : <Navigate to="/auth" />
+          } />
+
+          {/* Seeker Specific Routes */}
+          <Route path="/build-resume" element={
+            user && isSeeker ? <ResumeBuilder userData={userData} /> : <Navigate to="/profile" />
+          } />
+          
+          <Route path="/universe" element={user && isSeeker ? <FindJob viewType="all" onRefresh={fetchUserData} /> : <Navigate to="/auth" />} />
+          <Route path="/saved" element={user && isSeeker ? <FindJob viewType="saved" onRefresh={fetchUserData} /> : <Navigate to="/auth" />} />
+          <Route path="/applications" element={user && isSeeker ? <StatusTracker /> : <Navigate to="/auth" />} />
+
+          <Route path="/job-map" element={user ? <JobMap /> : <Navigate to="/auth" />} />
+
+          {/* Recruiter Specific Routes */}
+          <Route path="/recruiter/dashboard" element={user && isRecruiter ? <CandidateHub /> : <Navigate to="/auth" />} />
+          <Route path="/recruiter/post-job" element={user && isRecruiter ? <PostJob /> : <Navigate to="/auth" />} />
+          <Route path="/recruiter/manage-jobs" element={user && isRecruiter ? <ManageJobs /> : <Navigate to="/auth" />} />
+
+          <Route path="/job/:id" element={user ? <JobDetails /> : <Navigate to="/auth" />} />
+          
+          {/* Default Redirect */}
+          <Route path="*" element={<Navigate to="/" />} />
+        </Routes>
+      </main>
     </div>
   );
 };

@@ -4,7 +4,8 @@ import bcrypt from 'bcryptjs';
 const userSchema = new mongoose.Schema({
   name: {
     type: String,
-    required: [true, 'Please add a name']
+    required: [true, 'Please add a name'],
+    trim: true
   },
   email: {
     type: String,
@@ -17,78 +18,91 @@ const userSchema = new mongoose.Schema({
   },
   mobile: {
     type: String,
-    match: [/^\d{10}$/, 'Please add a valid 10-digit mobile number']
+    default: ""
   },
   password: {
     type: String,
     required: [true, 'Please add a password'],
     minlength: 6,
-    select: false
+    select: false 
   },
   role: {
     type: String,
     enum: ['seeker', 'recruiter'],
     default: 'seeker'
   },
-  // Seeker Specific
-  education: [
-    {
-      institution: String,
-      degree: String,
-      year: String
-    }
-  ],
-  skills: [String],
+  summary: {
+    type: String,
+    default: ""
+  },
+  bio: {
+    type: String,
+    default: ""
+  },
+  experienceLevel: {
+    type: String,
+    default: 'Fresher'
+  },
+  location: {
+    type: String,
+    default: ""
+  },
+  skills: {
+    type: [String],
+    default: []
+  },
   experience: [
     {
-      company: String,
-      position: String,
-      duration: String
+      company: { type: String, default: "" },
+      position: { type: String, default: "" },
+      duration: { type: String, default: "" },
+      description: { type: String, default: "" }
     }
   ],
-  resumes: [
+  savedJobs: [
     {
-      url: String,
-      name: String,
-      isDefault: {
-        type: Boolean,
-        default: false
-      }
+      type: mongoose.Schema.Types.ObjectId,
+      ref: 'Job'
     }
   ],
-  // Recruiter Specific
   companyDetails: {
-    name: String,
-    website: String,
-    description: String,
+    name: { type: String, default: "" },
+    website: { type: String, default: "" },
+    description: { type: String, default: "" },
+    industry: { type: String, default: "" }, 
+    location: { type: String, default: "" }, 
+    taxId: { type: String, default: "" },    
     verified: {
       type: Boolean,
       default: false
     }
-  },
-  profileProgress: {
-    type: Number,
-    default: 0
   }
 }, {
-  timestamps: true
+  timestamps: true,
+  strict: false 
 });
 
-// Encrypt password using bcrypt
+// --- 1. Password Hashing (Corrected Modern Async Syntax) ---
+// Yahan humne 'next' parameter hata diya hai kyunki async functions 
+// automatically resolve hote hain.
 userSchema.pre('save', async function() {
-  if (!this.isModified('password')) {
-    return;
-  }
+  // Agar password modify nahi hua toh process ko yahin rok do
+  if (!this.isModified('password')) return;
 
-  const salt = await bcrypt.genSalt(10);
-  this.password = await bcrypt.hash(this.password, salt);
+  try {
+    const salt = await bcrypt.genSalt(10);
+    this.password = await bcrypt.hash(this.password, salt);
+  } catch (err) {
+    throw new Error(err); 
+  }
 });
 
-// Match user entered password to hashed password in database
+// --- 2. Password Match Method ---
 userSchema.methods.matchPassword = async function(enteredPassword) {
+  // 'this.password' tabhi milega jab query mein .select('+password') use kiya ho
   return await bcrypt.compare(enteredPassword, this.password);
 };
 
-const User = mongoose.model('User', userSchema);
-
+// --- 3. Export Model ---
+const User = mongoose.models.User || mongoose.model('User', userSchema);
 export default User;

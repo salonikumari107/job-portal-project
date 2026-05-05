@@ -1,36 +1,40 @@
 import mongoose from 'mongoose';
 
 const applicationSchema = new mongoose.Schema({
-  job: {
-    type: mongoose.Schema.ObjectId,
-    ref: 'Job',
-    required: true
-  },
-  seeker: {
-    type: mongoose.Schema.ObjectId,
-    ref: 'User',
-    required: true
-  },
-  resume: {
-    type: String,
-    required: true
-  },
-  coverLetter: {
-    type: String
-  },
-  status: {
-    type: String,
-    enum: ['Applied', 'Under review', 'Shortlisted', 'Rejected'],
-    default: 'Applied'
-  },
-  appliedAt: {
-    type: Date,
-    default: Date.now
-  }
-}, {
-  timestamps: true
-});
+    // Kis job ke liye apply kiya
+    job: { 
+        type: mongoose.Schema.Types.ObjectId, 
+        ref: 'Job', 
+        required: true 
+    },
+    // Candidate (Seeker) ki ID
+    user: { 
+        type: mongoose.Schema.Types.ObjectId, 
+        ref: 'User', 
+        required: true 
+    }, 
+    // Recruiter ki ID taaki uske dashboard mein dikhe
+    recruiter: { 
+        type: mongoose.Schema.Types.ObjectId, 
+        ref: 'User', 
+        required: true 
+    },
+    // Resume URL jo candidate ne upload kiya
+    resume: { 
+        type: String, 
+        required: true 
+    }, 
+    status: {
+        type: String,
+        // ✅ 'shortlisted' add kiya hai kyunki aapke frontend mein wahi logic hai
+        enum: ['pending', 'shortlisted', 'accepted', 'rejected'], 
+        default: 'pending',
+        lowercase: true // Taaki Case-sensitivity ka panga na ho
+    },
+    appliedAt: { 
+        type: Date, 
+        default: Date.now 
+    }
+}, { timestamps: true });
 
-const Application = mongoose.model('Application', applicationSchema);
-
-export default Application;
+export default mongoose.model('Application', applicationSchema);

@@ -1,304 +1,236 @@
-import React, { useState, useEffect } from 'react';
-import { User, Mail, Briefcase, Code, Save, Edit3, Building, GraduationCap, Plus, Trash2, CheckCircle2, FileText, Upload, Layout } from 'lucide-react';
+import React, { useState } from 'react';
+import { 
+  User, CheckCircle2, Plus, X, 
+  AlignLeft, Zap, FileText, Eye, Trash2, UploadCloud 
+} from 'lucide-react';
 import api from '../api/axios';
 import toast from 'react-hot-toast';
 
-const Profile = ({ role, data, setData }) => {
-  const [isEditing, setIsEditing] = useState(false);
-  const [tempData, setTempData] = useState({ 
-    name: '', 
-    email: '', 
-    mobile: '', 
-    skills: '', 
-    education: [], 
-    experience: [], 
-    companyDetails: { name: '', website: '', description: '' },
-    ...data 
-  });
+const Profile = ({ profileData, setProfileData }) => {
+  const [isModalOpen, setIsModalOpen] = useState(false);
+  const [newSkill, setNewSkill] = useState("");
 
-  useEffect(() => {
-    if (data) {
-      setTempData(prev => ({
-        ...prev,
-        ...data,
-        companyDetails: {
-          ...prev.companyDetails,
-          ...(data.companyDetails || {})
-        },
-        skills: Array.isArray(data.skills) ? data.skills.join(', ') : (data.skills || '')
-      }));
+  const handleAddSkill = () => {
+    if (newSkill.trim() && !profileData?.skills?.includes(newSkill.trim())) {
+      setProfileData({
+        ...profileData,
+        skills: [...(profileData?.skills || []), newSkill.trim()]
+      });
+      setNewSkill("");
     }
-  }, [data]);
+  };
 
-  const calculateProgress = () => {
-    let totalFields = 4; // Name, Email, Mobile, Skills/Company
-    let completedFields = 0;
-    if (tempData.name) completedFields++;
-    if (tempData.email) completedFields++;
-    if (tempData.mobile) completedFields++;
-    
-    if (role === 'seeker') {
-      if (tempData.skills) completedFields++;
-      totalFields += (tempData.education?.length > 0 ? 1 : 0);
-      totalFields += (tempData.experience?.length > 0 ? 1 : 0);
-      completedFields += (tempData.education?.length > 0 ? 1 : 0);
-      completedFields += (tempData.experience?.length > 0 ? 1 : 0);
-      totalFields = 6;
-    } else {
-      if (tempData.companyDetails?.name) completedFields++;
-      if (tempData.companyDetails?.website) completedFields++;
-      totalFields = 5;
+  const removeSkill = (skillToRemove) => {
+    setProfileData({
+      ...profileData,
+      skills: (profileData?.skills || []).filter(s => s !== skillToRemove)
+    });
+  };
+
+  // 📄 RESUME UPLOAD HANDLER
+  const handleResumeUpload = async (e) => {
+    const file = e.target.files[0];
+    if (!file) return;
+
+    const formData = new FormData();
+    formData.append('resume', file);
+
+    const loadingToast = toast.loading("Uploading resume to Orbit...");
+    try {
+      const res = await api.post('/auth/upload-resume', formData, {
+        headers: { 'Content-Type': 'multipart/form-data' }
+      });
+      if (res.data.success) {
+        toast.success("Resume Vault Updated!", { id: loadingToast });
+        setProfileData({ ...profileData, resume: res.data.resumePath });
+      }
+    } catch (err) {
+      // ✅ FIXED: Using 'err' to log the issue
+      console.error("Upload Error:", err);
+      toast.error("Upload failed", { id: loadingToast });
     }
+  };
+
+  // 🗑️ RESUME DELETE HANDLER
+  const handleDeleteResume = async () => {
+    if (!window.confirm("Are you sure you want to remove your resume?")) return;
     
-    return Math.round((completedFields / totalFields) * 100);
+    const loadingToast = toast.loading("Removing resume...");
+    try {
+      const res = await api.delete('/auth/delete-resume');
+      if (res.data.success) {
+        toast.success("Resume Removed", { id: loadingToast });
+        setProfileData({ ...profileData, resume: null });
+      }
+    } catch (err) {
+      // ✅ FIXED: Using 'err' to log the issue
+      console.error("Delete Error:", err);
+      toast.error("Delete failed", { id: loadingToast });
+    }
   };
 
   const handleSave = async () => {
+    const loadingToast = toast.loading("Syncing with Orbit...");
     try {
-      const payload = {
-        ...tempData,
-        skills: typeof tempData.skills === 'string' ? tempData.skills.split(',').map(s => s.trim()) : tempData.skills
-      };
-      const res = await api.put('/users/profile', payload);
+      const res = await api.put('/auth/profile', profileData);
       if (res.data.success) {
-        setData(res.data.data);
-        setIsEditing(false);
-        toast.success(`${role.toUpperCase()} Profile Updated!`);
+        toast.success("AI Profile Synced!", { id: loadingToast });
+        setProfileData(res.data.user || res.data.data);
+        setIsModalOpen(false);
       }
     } catch (err) {
-      toast.error(err.response?.data?.message || "Error updating profile");
+      // Isme 'err' pehle se use ho raha tha, toh ye sahi hai
+      console.error("Backend Error:", err.response?.data);
+      toast.error(err.response?.data?.message || "Server Error", { id: loadingToast });
     }
   };
 
-  const addEducation = () => {
-    setTempData({
-      ...tempData,
-      education: [...(tempData.education || []), { institution: '', degree: '', year: '' }]
-    });
-  };
-
-  const removeEducation = (index) => {
-    const newEdu = [...tempData.education];
-    newEdu.splice(index, 1);
-    setTempData({ ...tempData, education: newEdu });
-  };
-
-  const updateEducation = (index, field, value) => {
-    const newEdu = [...tempData.education];
-    newEdu[index][field] = value;
-    setTempData({ ...tempData, education: newEdu });
-  };
-
-  const addExperience = () => {
-    setTempData({
-      ...tempData,
-      experience: [...(tempData.experience || []), { company: '', position: '', duration: '' }]
-    });
-  };
-
-  const removeExperience = (index) => {
-    const newExp = [...tempData.experience];
-    newExp.splice(index, 1);
-    setTempData({ ...tempData, experience: newExp });
-  };
-
-  const updateExperience = (index, field, value) => {
-    const newExp = [...tempData.experience];
-    newExp[index][field] = value;
-    setTempData({ ...tempData, experience: newExp });
-  };
-
-  const progress = calculateProgress();
-
   return (
-    <div className="max-w-4xl mx-auto animate-in fade-in pb-20">
-      <div className="flex flex-col md:flex-row justify-between items-start md:items-center gap-6 mb-8 md:mb-6">
-        <div className="w-full md:w-auto">
-          <h2 className="text-3xl md:text-4xl font-black italic uppercase tracking-tighter">
-            {role === 'seeker' ? 'Seeker' : 'Recruiter'} <span className="text-blue-600">Profile.</span>
-          </h2>
-          <div className="flex items-center gap-3 mt-2">
-            <div className="w-full md:w-48 h-2 bg-slate-100 rounded-full overflow-hidden">
-              <div 
-                className="h-full bg-blue-600 transition-all duration-500" 
-                style={{ width: `${progress}%` }}
-              ></div>
-            </div>
-            <span className="text-[10px] font-black text-slate-400 uppercase">{progress}% Complete</span>
+    <div className="max-w-6xl mx-auto p-6 md:p-10 space-y-8 text-left">
+      {/* Identity Card */}
+      <div className="bg-white p-10 rounded-[3rem] border shadow-xl flex flex-col md:flex-row justify-between items-center gap-6">
+        <div className="flex items-center gap-8">
+          <div className="w-24 h-24 bg-blue-600 rounded-[2rem] flex items-center justify-center text-white shadow-2xl shrink-0">
+            <User size={40} strokeWidth={3} />
+          </div>
+          <div>
+            <h1 className="text-4xl md:text-5xl font-black italic tracking-tighter uppercase text-slate-900 leading-none">
+              {profileData?.name || "User"}
+            </h1>
+            <p className="text-slate-400 font-bold tracking-widest text-xs uppercase mt-2">
+              {profileData?.email}
+            </p>
           </div>
         </div>
         <button 
-          onClick={() => isEditing ? handleSave() : setIsEditing(true)}
-          className="w-full md:w-auto flex items-center justify-center gap-2 px-6 md:px-8 py-3 md:py-4 bg-black text-white rounded-[2rem] font-black text-[10px] uppercase tracking-[0.2em] shadow-xl hover:bg-blue-600 transition-all"
+          onClick={() => setIsModalOpen(true)}
+          className="bg-black text-white px-10 py-4 rounded-2xl font-black text-xs uppercase tracking-widest hover:bg-blue-600 transition-all shadow-lg active:scale-95"
         >
-          {isEditing ? <><Save size={16}/> Save Profile</> : <><Edit3 size={16}/> Edit Profile</>}
+          Edit Profile
         </button>
       </div>
 
-      <div className="space-y-8">
-        {/* Basic Info */}
-        <div className="bg-slate-50 p-10 rounded-[3rem] border border-slate-100 shadow-sm space-y-8">
-          <h3 className="text-xs font-black uppercase tracking-widest text-slate-900 border-b border-slate-200 pb-4">Personal Node Information</h3>
-          <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-            <Field label="Full Name" icon={<User size={18}/>} value={tempData.name} disabled={!isEditing} onChange={(val) => setTempData({...tempData, name: val})} />
-            <Field label="Email Address" icon={<Mail size={18}/>} value={tempData.email} disabled={true} />
-            <Field label="Mobile Number" icon={<FileText size={18}/>} value={tempData.mobile} disabled={!isEditing} onChange={(val) => setTempData({...tempData, mobile: val})} />
-            {role === 'seeker' && (
-              <Field label="Professional Skills" icon={<Code size={18}/>} value={tempData.skills} disabled={!isEditing} onChange={(val) => setTempData({...tempData, skills: val})} placeholder="React, Node, Figma" />
-            )}
+      {/* 📄 NEW: RESUME VAULT SECTION */}
+      <div className="bg-white p-8 rounded-[3rem] border shadow-sm flex flex-col md:flex-row items-center justify-between gap-4">
+        <div className="flex items-center gap-4">
+          <div className="p-4 bg-blue-50 text-blue-600 rounded-2xl">
+            <FileText size={24} />
+          </div>
+          <div>
+            <h3 className="text-sm font-black uppercase tracking-widest text-slate-900">Resume Vault</h3>
+            <p className="text-xs text-slate-400 font-medium">
+              {profileData?.resume ? "Your resume is active and visible to recruiters." : "No resume uploaded yet."}
+            </p>
           </div>
         </div>
 
-        {role === 'seeker' && (
-          <>
-            {/* Education */}
-            <div className="bg-slate-50 p-10 rounded-[3rem] border border-slate-100 shadow-sm space-y-6">
-              <div className="flex justify-between items-center border-b border-slate-200 pb-4">
-                <h3 className="text-xs font-black uppercase tracking-widest text-slate-900">Education Background</h3>
-                {isEditing && (
-                  <button onClick={addEducation} className="p-2 bg-blue-600 text-white rounded-full hover:bg-black transition-all">
-                    <Plus size={16}/>
-                  </button>
-                )}
-              </div>
-              <div className="space-y-4">
-                {tempData.education?.map((edu, idx) => (
-                  <div key={idx} className="bg-white p-6 rounded-3xl border border-slate-100 relative group">
-                    {isEditing && (
-                      <button onClick={() => removeEducation(idx)} className="absolute top-4 right-4 text-red-400 hover:text-red-600 p-2">
-                        <Trash2 size={16}/>
-                      </button>
-                    )}
-                    <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-                      <input placeholder="Institution" disabled={!isEditing} value={edu.institution} onChange={(e) => updateEducation(idx, 'institution', e.target.value)} className="p-3 bg-slate-50 rounded-xl text-xs font-bold outline-none border-2 border-transparent focus:border-blue-100" />
-                      <input placeholder="Degree" disabled={!isEditing} value={edu.degree} onChange={(e) => updateEducation(idx, 'degree', e.target.value)} className="p-3 bg-slate-50 rounded-xl text-xs font-bold outline-none border-2 border-transparent focus:border-blue-100" />
-                      <input placeholder="Year" disabled={!isEditing} value={edu.year} onChange={(e) => updateEducation(idx, 'year', e.target.value)} className="p-3 bg-slate-50 rounded-xl text-xs font-bold outline-none border-2 border-transparent focus:border-blue-100" />
-                    </div>
-                  </div>
-                ))}
-              </div>
-            </div>
-
-            {/* Experience */}
-            <div className="bg-slate-50 p-10 rounded-[3rem] border border-slate-100 shadow-sm space-y-6">
-              <div className="flex justify-between items-center border-b border-slate-200 pb-4">
-                <h3 className="text-xs font-black uppercase tracking-widest text-slate-900">Work Experience</h3>
-                {isEditing && (
-                  <button onClick={addExperience} className="p-2 bg-blue-600 text-white rounded-full hover:bg-black transition-all">
-                    <Plus size={16}/>
-                  </button>
-                )}
-              </div>
-              <div className="space-y-4">
-                {tempData.experience?.map((exp, idx) => (
-                  <div key={idx} className="bg-white p-6 rounded-3xl border border-slate-100 relative">
-                    {isEditing && (
-                      <button onClick={() => removeExperience(idx)} className="absolute top-4 right-4 text-red-400 hover:text-red-600 p-2">
-                        <Trash2 size={16}/>
-                      </button>
-                    )}
-                    <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-                      <input placeholder="Company" disabled={!isEditing} value={exp.company} onChange={(e) => updateExperience(idx, 'company', e.target.value)} className="p-3 bg-slate-50 rounded-xl text-xs font-bold outline-none border-2 border-transparent focus:border-blue-100" />
-                      <input placeholder="Position" disabled={!isEditing} value={exp.position} onChange={(e) => updateExperience(idx, 'position', e.target.value)} className="p-3 bg-slate-50 rounded-xl text-xs font-bold outline-none border-2 border-transparent focus:border-blue-100" />
-                      <input placeholder="Duration" disabled={!isEditing} value={exp.duration} onChange={(e) => updateExperience(idx, 'duration', e.target.value)} className="p-3 bg-slate-50 rounded-xl text-xs font-bold outline-none border-2 border-transparent focus:border-blue-100" />
-                    </div>
-                  </div>
-                ))}
-              </div>
-            </div>
-
-            {/* Resume Management */}
-            <div className="bg-slate-50 p-10 rounded-[3rem] border border-slate-100 shadow-sm space-y-6">
-              <h3 className="text-xs font-black uppercase tracking-widest text-slate-900 border-b border-slate-200 pb-4">Resume Repository</h3>
-              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                {tempData.resumes?.map((res, idx) => (
-                  <div key={idx} className="bg-white p-4 rounded-2xl flex items-center justify-between border border-slate-100">
-                    <div className="flex items-center gap-3">
-                      <FileText size={20} className="text-blue-500"/>
-                      <span className="text-[10px] font-black uppercase truncate max-w-[150px]">{res.name}</span>
-                    </div>
-                    {res.isDefault && <CheckCircle2 size={16} className="text-green-500"/>}
-                  </div>
-                ))}
-                <label className="border-2 border-dashed border-slate-200 p-4 rounded-2xl flex items-center justify-center gap-2 cursor-pointer hover:bg-white transition-all text-slate-400">
-                  <Upload size={18}/>
-                  <span className="text-[10px] font-black uppercase">Add New Resume</span>
-                  <input type="file" id="resume-upload" className="hidden" accept=".pdf,.doc,.docx" onChange={async (e) => {
-                    console.log("Input onChange triggered");
-                    const file = e.target.files[0];
-                    if (file) {
-                      console.log("File detected:", file.name);
-                      const formData = new FormData();
-                      formData.append('resume', file);
-                      
-                      // Debugging FormData
-                      for (let pair of formData.entries()) {
-                        console.log('FormData entry:', pair[0], pair[1]);
-                      }
-
-                      try {
-                        const res = await api.post('/users/resume', formData);
-                        console.log("Upload response:", res.data);
-                        if (res.data.success) {
-                          setTempData({ ...tempData, resumes: res.data.data });
-                          toast.success("Resume Uploaded!");
-                        }
-                      } catch (err) {
-                        const errMsg = err.response?.data?.message || err.message || "Upload Failed";
-                        toast.error(errMsg);
-                        console.error("Upload error full details:", err);
-                        if (err.response) {
-                          console.error("Server response data:", err.response.data);
-                          console.error("Server response status:", err.response.status);
-                        }
-                      }
-                    }
-                  }} />
-                </label>
-              </div>
-            </div>
-          </>
-        )}
-
-        {role === 'recruiter' && (
-          <div className="bg-slate-50 p-10 rounded-[3rem] border border-slate-100 shadow-sm space-y-8">
-            <h3 className="text-xs font-black uppercase tracking-widest text-slate-900 border-b border-slate-200 pb-4">Company Node Details</h3>
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-              <Field label="Company Name" icon={<Building size={18}/>} value={tempData.companyDetails?.name} disabled={!isEditing} onChange={(val) => setTempData({...tempData, companyDetails: {...(tempData.companyDetails || {}), name: val}})} />
-              <Field label="Website" icon={<Layout size={18}/>} value={tempData.companyDetails?.website} disabled={!isEditing} onChange={(val) => setTempData({...tempData, companyDetails: {...(tempData.companyDetails || {}), website: val}})} />
-              <div className="space-y-2 md:col-span-2">
-                <label className="text-[10px] font-black uppercase text-slate-400 ml-4">Company Description</label>
-                <textarea 
-                  disabled={!isEditing}
-                  value={tempData.companyDetails?.description || ''}
-                  onChange={(e) => setTempData({...tempData, companyDetails: {...(tempData.companyDetails || {}), description: e.target.value}})}
-                  className="w-full p-5 rounded-3xl bg-white outline-none font-bold text-xs h-32 resize-none border-2 border-transparent focus:border-blue-100"
-                />
-              </div>
-            </div>
-          </div>
-        )}
+        <div className="flex items-center gap-3">
+          {profileData?.resume ? (
+            <>
+              <a 
+                href={`http://localhost:8000/${profileData.resume}`} 
+                target="_blank" 
+                rel="noreferrer"
+                className="flex items-center gap-2 px-6 py-3 bg-slate-100 text-slate-700 rounded-xl font-bold text-xs uppercase hover:bg-slate-200 transition-all"
+              >
+                <Eye size={16} /> View
+              </a>
+              <button 
+                onClick={handleDeleteResume}
+                className="p-3 bg-red-50 text-red-500 rounded-xl hover:bg-red-100 transition-all"
+              >
+                <Trash2 size={18} />
+              </button>
+            </>
+          ) : (
+            <label className="cursor-pointer flex items-center gap-2 px-8 py-3 bg-blue-600 text-white rounded-xl font-bold text-xs uppercase hover:bg-blue-700 transition-all shadow-md">
+              <UploadCloud size={16} /> Upload Resume
+              <input type="file" className="hidden" onChange={handleResumeUpload} accept=".pdf,.doc,.docx" />
+            </label>
+          )}
+        </div>
       </div>
+
+      <div className="grid grid-cols-1 md:grid-cols-3 gap-8">
+        <div className="md:col-span-2 bg-white p-10 rounded-[3rem] border shadow-sm">
+          <h3 className="text-[10px] font-black text-slate-400 uppercase tracking-[0.3em] mb-6 flex items-center gap-2">
+            <AlignLeft size={16} className="text-blue-600"/> Professional Summary
+          </h3>
+          <p className="text-slate-600 font-medium leading-relaxed italic">
+            {profileData?.summary || "Write about your journey..."}
+          </p>
+        </div>
+
+        <div className="bg-[#f8faff] p-10 rounded-[3rem] border border-blue-50 shadow-inner">
+          <h3 className="text-[10px] font-black text-blue-400 uppercase tracking-[0.3em] mb-6 flex items-center gap-2">
+            <Zap size={16} fill="currentColor"/> AI Core Skills
+          </h3>
+          <div className="flex flex-wrap gap-2">
+            {profileData?.skills?.map((skill, index) => (
+              <span key={index} className="bg-white text-slate-800 px-4 py-2 rounded-xl font-black text-[10px] uppercase border shadow-sm">
+                {skill}
+              </span>
+            ))}
+          </div>
+        </div>
+      </div>
+
+      {/* Update Modal */}
+      {isModalOpen && (
+        <div className="fixed inset-0 bg-black/80 backdrop-blur-md z-50 flex items-center justify-center p-4 text-left">
+          <div className="bg-white w-full max-w-2xl rounded-[3.5rem] shadow-2xl p-10 relative">
+            <button onClick={() => setIsModalOpen(false)} className="absolute top-10 right-10 text-slate-300 hover:text-red-500">
+              <X size={30} />
+            </button>
+            <h2 className="text-3xl font-black uppercase italic tracking-tighter mb-8">Update Profile</h2>
+            
+            <div className="space-y-6 overflow-y-auto max-h-[60vh] pr-2">
+              <textarea 
+                value={profileData?.summary || ""}
+                onChange={(e) => setProfileData({...profileData, summary: e.target.value})}
+                className="w-full p-6 bg-slate-50 rounded-[2rem] border-none font-medium outline-none focus:ring-2 ring-blue-600"
+                placeholder="Describe your journey..."
+                rows="4"
+              />
+              
+              <div className="space-y-4">
+                <div className="flex flex-wrap gap-2 mb-4">
+                  {profileData?.skills?.map((skill) => (
+                    <div key={skill} className="flex items-center gap-2 bg-blue-50 text-blue-600 px-3 py-2 rounded-xl font-bold text-xs uppercase border border-blue-100">
+                      {skill}
+                      <button onClick={() => removeSkill(skill)} className="hover:text-red-500 transition-colors">
+                        <X size={14} />
+                      </button>
+                    </div>
+                  ))}
+                </div>
+
+                <div className="flex gap-2">
+                  <input 
+                    value={newSkill}
+                    onChange={(e) => setNewSkill(e.target.value)}
+                    onKeyDown={(e) => e.key === 'Enter' && (e.preventDefault(), handleAddSkill())}
+                    className="flex-1 p-5 bg-slate-50 rounded-2xl font-bold outline-none border-none focus:ring-2 ring-blue-600"
+                    placeholder="Add a skill..."
+                  />
+                  <button onClick={handleAddSkill} className="bg-black text-white p-5 rounded-2xl hover:bg-blue-600 transition-colors">
+                    <Plus/>
+                  </button>
+                </div>
+              </div>
+            </div>
+
+            <button 
+              onClick={handleSave}
+              className="w-full mt-10 bg-blue-600 text-white py-6 rounded-[2rem] font-black text-xl shadow-xl hover:bg-blue-700 flex items-center justify-center gap-3 transition-all active:scale-95"
+            >
+              Sync Changes <CheckCircle2 size={24} />
+            </button>
+          </div>
+        </div>
+      )}
     </div>
   );
 };
-
-const Field = ({ label, icon, value, disabled, onChange, placeholder }) => (
-  <div className="space-y-2">
-    <label className="text-[10px] font-black uppercase text-slate-400 ml-4">{label}</label>
-    <div className="relative">
-      <div className="absolute left-5 top-1/2 -translate-y-1/2 text-slate-300">
-        {icon}
-      </div>
-      <input 
-        disabled={disabled}
-        placeholder={placeholder}
-        value={value || ''}
-        onChange={(e) => onChange(e.target.value)}
-        className="w-full pl-14 p-5 rounded-3xl bg-white outline-none font-bold italic disabled:opacity-60 transition-all border-2 border-transparent focus:border-blue-100"
-      />
-    </div>
-  </div>
-);
 
 export default Profile;
