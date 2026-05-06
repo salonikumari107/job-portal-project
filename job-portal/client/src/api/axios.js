@@ -3,7 +3,7 @@ import toast from 'react-hot-toast';
 
 // ✅ Dynamic URL: Local par 8001 use karega, Render par Environment Variable
 // Agar aapne Render par VITE_API_URL set nahi kiya hai, toh niche di gayi line ko replace karein
-const RENDER_BACKEND_URL = "https://job-portal-project-1-7llf.onrender.com"; // 👈 Yahan apna asli Render Backend URL dalein
+const RENDER_BACKEND_URL = "https://job-portal-project-27ux.onrender.com"; // 👈 Yahan apna asli Render Backend URL dalein
 const LOCAL_URL = "http://localhost:8001";
 
 const BASE_URL = import.meta.env.MODE === 'production' ? RENDER_BACKEND_URL : LOCAL_URL;
