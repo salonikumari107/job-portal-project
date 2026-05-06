@@ -1,11 +1,15 @@
 import axios from 'axios';
 import toast from 'react-hot-toast';
 
-// ✅ Port 8001 set kiya gaya hai kyunki aapka backend wahan chal raha hai
-const BASE_URL = "http://localhost:8001"; 
+// ✅ Dynamic URL: Local par 8001 use karega, Render par Environment Variable
+// Agar aapne Render par VITE_API_URL set nahi kiya hai, toh niche di gayi line ko replace karein
+const RENDER_BACKEND_URL = "https://your-backend-name.onrender.com"; // 👈 Yahan apna asli Render Backend URL dalein
+const LOCAL_URL = "http://localhost:8001";
+
+const BASE_URL = import.meta.env.MODE === 'production' ? RENDER_BACKEND_URL : LOCAL_URL;
 
 const api = axios.create({
-  baseURL: import.meta.env.VITE_API_URL || `${BASE_URL}/api/v1`,
+  baseURL: `${BASE_URL}/api/v1`,
   withCredentials: true,  
   headers: {
     "Content-Type": "application/json",
@@ -28,10 +32,14 @@ api.interceptors.request.use(
 api.interceptors.response.use(
   (response) => response,
   (error) => {
-    // A. Network Error Check (Updated error message to Port 8001)
+    // A. Network Error Check
     if (!error.response) {
-      toast.error("Network Error! Server se connect nahi ho pa raha (Check Port 8001).");
-      console.error("❌ Connection Refused: Ensure Backend is running on Port 8001.");
+      const errorMsg = import.meta.env.MODE === 'production' 
+        ? "Network Error! Cloud server se connect nahi ho pa raha." 
+        : "Network Error! Server se connect nahi ho pa raha (Check Port 8001).";
+      
+      toast.error(errorMsg);
+      console.error("❌ Connection Refused: Ensure Backend is running.");
     }
 
     // B. Unauthorized Check (401)
@@ -64,18 +72,16 @@ api.interceptors.response.use(
 );
 
 // --- 3. RESUME VIEW HELPER ---
-// Is function ko aap JobCard.jsx ya AppStatus.jsx mein import karke use kar sakte hain
-// src/api/axios.js mein ye update karein
 export const getResumeUrl = (resumePath) => {
     if (!resumePath) return "#";
 
-    // 1. Agar database mein "http://localhost:8000/..." save hai
-    // toh use current BASE_URL (8001) se replace kar dega
-    if (resumePath.includes('localhost:8000')) {
-        return resumePath.replace('http://localhost:8000', BASE_URL);
+    // Purane localhost:8000 paths ko fix karne ke liye
+    if (resumePath.includes('localhost:8000') || resumePath.includes('localhost:8001')) {
+        const parts = resumePath.split('/');
+        const filename = parts[parts.length - 1];
+        return `${BASE_URL}/uploads/${filename}`;
     }
 
-    // 2. Agar sirf filename save hai (e.g., "123.pdf")
     const cleanPath = resumePath.startsWith('uploads/') ? resumePath : `uploads/${resumePath}`;
     return `${BASE_URL}/${cleanPath}`;
 };
