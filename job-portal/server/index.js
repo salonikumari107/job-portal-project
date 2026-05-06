@@ -75,7 +75,11 @@ app.use((err, req, res, next) => {
 });
 
 // --- SERVER START ---
+
+
 const PORT = process.env.PORT || 10000; 
-app.listen(PORT, () => {
-  console.log(`🚀 SERVER RUNNING ON PORT: ${PORT}`);
+
+// 2. Host '0.0.0.0' add karein jo Render ke liye zaroori hai
+app.listen(PORT, '0.0.0.0', () => {
+    console.log(`🚀 SERVER RUNNING ON PORT: ${PORT}`);
 });
