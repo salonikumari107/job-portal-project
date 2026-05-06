@@ -8,8 +8,11 @@ import morgan from 'morgan';
 import { fileURLToPath } from 'url'; 
 import mongoose from 'mongoose';
 
+// Env variables load karein
 dotenv.config(); 
 
+// Routes Imports
+// Make sure ye files routes folder mein exists karti hain aur extension .js hai
 import authRoutes from './routes/authRoutes.js';
 import jobRoutes from './routes/jobRoutes.js';
 import applicationRoutes from './routes/applicationRoutes.js';
@@ -22,7 +25,7 @@ const app = express();
 // --- DATABASE CONNECTION ---
 const connectDB = async () => {
     try {
-        // Aapki current configuration ke hisaab se MONGO_URI env se li gayi hai
+        // saloni_23: Aapka connection string env file se aa raha hai
         await mongoose.connect(process.env.MONGO_URI);
         console.log("✅ MongoDB Connected Successfully!");
     } catch (error) {
@@ -35,7 +38,11 @@ connectDB();
 
 // --- MIDDLEWARES ---
 app.use(cors({
-    origin: ["http://localhost:5173", "http://localhost:5174"], 
+    origin: [
+        "http://localhost:5173", 
+        "http://localhost:5174",
+        "https://job-portal-project-1-7llf.onrender.com" // Aapka deployed frontend URL
+    ], 
     credentials: true, 
     methods: ["GET", "POST", "PUT", "DELETE"],
     allowedHeaders: ["Content-Type", "Authorization"]
@@ -45,15 +52,27 @@ app.use(morgan('dev'));
 app.use(express.json());
 app.use(cookieParser()); 
 
-// ✅ STATIC FILES SETUP (Resume View karne ke liye zaroori hai)
-// Isse http://localhost:8001/uploads/filename.pdf wala path kaam karne lagega
-app.use('/uploads', express.static(path.join(__dirname, 'uploads')));
+// ✅ UPLOADS FOLDER CHECK
+// Agar uploads folder nahi hai toh ye automatically bana dega (taaki resume upload mein error na aaye)
+const uploadDir = path.join(__dirname, 'uploads');
+if (!fs.existsSync(uploadDir)) {
+    fs.mkdirSync(uploadDir);
+}
+app.use('/uploads', express.static(uploadDir));
 
 // --- ROUTES ---
-// Frontend ke sath match karne ke liye /v1 prefix ka use kiya gaya hai
 app.use('/api/v1/auth', authRoutes);
 app.use('/api/v1/jobs', jobRoutes);
 app.use('/api/v1/application', applicationRoutes); 
+
+// Global Error Handler (Extra safety)
+app.use((err, req, res, next) => {
+    const statusCode = err.statusCode || 500;
+    res.status(statusCode).json({
+        success: false,
+        message: err.message || "Internal Server Error"
+    });
+});
 
 // --- SERVER START ---
 const PORT = process.env.PORT || 8001; 
