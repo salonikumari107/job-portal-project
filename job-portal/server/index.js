@@ -37,14 +37,11 @@ const connectDB = async () => {
 connectDB(); 
 
 // --- MIDDLEWARES ---
+// --- MIDDLEWARES ---
 app.use(cors({
-    origin: [
-        "http://localhost:5173", 
-        "http://localhost:5174",
-        "https://job-portal-project-1-7llf.onrender.com" // Aapka deployed frontend URL
-    ], 
-    credentials: true, 
-    methods: ["GET", "POST", "PUT", "DELETE"],
+    origin: "https://job-portal-project-1-7llf.onrender.com", // Sirf ye ek link rakhein jo console mein dikh raha hai
+    credentials: true,
+    methods: ["GET", "POST", "PUT", "DELETE", "OPTIONS"], // OPTIONS zaroori hai pre-flight ke liye
     allowedHeaders: ["Content-Type", "Authorization"]
 }));
 
