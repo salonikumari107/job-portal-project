@@ -37,28 +37,21 @@ connectDB();
 // --- MIDDLEWARES ---
 // ✅ UPDATED CORS: Added 5176, 5177, 5178 and kept production URL
 // --- MIDDLEWARES ---
+// ✅ REPLACED CORS: Simple and robust for Render
 app.use(cors({
-    origin: function (origin, callback) {
-        const allowedOrigins = [
-            "http://localhost:5173", 
-            "http://localhost:5174",
-            "http://localhost:5176",
-            "http://localhost:5177",
-            "http://localhost:5178",
-            "http://localhost:5179",
-            "http://localhost:5180",
-            "https://job-portal-frontend-new.onrender.com"
-        ];
-        // allow requests with no origin (like mobile apps or curl requests)
-        if (!origin || allowedOrigins.indexOf(origin) !== -1) {
-            callback(null, true);
-        } else {
-            callback(new Error('Not allowed by CORS'));
-        }
-    },
+    origin: [
+        "http://localhost:5173", 
+        "http://localhost:5174",
+        "http://localhost:5176",
+        "http://localhost:5177",
+        "http://localhost:5178",
+        "http://localhost:5179",
+        "http://localhost:5180",
+        "https://job-portal-frontend-new.onrender.com" // 👈 Bina slash (/) ke
+    ],
     credentials: true,
     methods: ["GET", "POST", "PUT", "DELETE", "OPTIONS"],
-    allowedHeaders: ["Content-Type", "Authorization"]
+    allowedHeaders: ["Content-Type", "Authorization", "X-Requested-With", "Accept"]
 }));
 
 app.use(morgan('dev'));
