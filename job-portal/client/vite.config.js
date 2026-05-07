@@ -1,23 +1,35 @@
 import { defineConfig } from 'vite'
 import react from '@vitejs/plugin-react'
 
-// https://vite.dev/config/
+// https://vitejs.dev/config/
 export default defineConfig({
   plugins: [react()],
   server: {
+    // 1. Port fix karne ke liye:
     port: 5173,      
-    strictPort: false, // 👈 Ise false rakhein taaki agar 5173 busy ho toh Vite crash na ho
-    host: true,        // 👈 Isse aap apne mobile par bhi preview dekh sakte hain
+    strictPort: true, // 👈 Ise TRUE karein taaki port change na ho. Agar 5173 busy hoga toh ye bata dega.
+    
+    // 2. Network access ke liye:
+    host: true,       
+    
+    // 3. Proxy settings (Local testing ke liye):
     proxy: {
       '/api': {
-        target: 'http://localhost:5000',
+        // Yahan wo port dalein jo aapke backend index.js mein hai (8001 ya 5000)
+        target: 'http://localhost:8001', 
         changeOrigin: true,
         secure: false,
       },
     },
   },
-  // 👇 YE SABSE ZAROORI HAI: React-to-print ke error ko fix karne ke liye
+
+  // 4. Dependency optimization (Resume builder ke liye):
   optimizeDeps: {
     include: ['react-to-print'],
   },
+
+  // 5. Build settings:
+  build: {
+    outDir: 'dist', // Render isi folder ko dhundta hai
+  }
 })

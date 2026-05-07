@@ -5,7 +5,7 @@ import toast from 'react-hot-toast';
 // 1. Agar local hai toh 10000 use hoga.
 // 2. Agar Render par hai toh aapka live backend URL.
 const RENDER_BACKEND_URL = "https://job-portal-project-27ux.onrender.com"; // 👈 Yahan apna sahi Render Backend URL confirm kar lein
-const LOCAL_URL = "http://localhost:8001";
+const LOCAL_URL = "https://job-portal-backend-new-jjua.onrender.com";
 
 const BASE_URL = import.meta.env.MODE === 'production' ? RENDER_BACKEND_URL : LOCAL_URL;
 

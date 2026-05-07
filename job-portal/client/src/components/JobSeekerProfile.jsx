@@ -12,7 +12,7 @@ const JobSeekerProfile = ({ profileData, setProfileData }) => {
     // Initialize state directly from profileData
     const [tempData, setTempData] = useState(profileData || {});
     
-    const BASE_URL = "http://localhost:8001";
+    const BASE_URL = "https://job-portal-backend-new-jjua.onrender.com";
 
     // ✅ FIXED: Cascading Render Logic
     // Sirf tabhi update karein jab profileData sach mein badla ho (Deep Comparison)
