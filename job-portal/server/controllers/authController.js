@@ -20,7 +20,6 @@ const sendTokenResponse = (user, statusCode, res, req) => {
   const userData = user.toObject();
   delete userData.password;
 
-  // ✅ RESUME URL FIX
   if (userData.resume) {
     const baseUrl = `${req.protocol}://${req.get('host')}`;
     userData.resumeUrl = `${baseUrl}/uploads/resumes/${userData.resume}`;
@@ -127,163 +126,101 @@ export const getMe = async (req, res) => {
   }
 };
 
-// --- 4. UPDATE PROFILE ---
+// --- 4. UPDATE PROFILE (🚀 FINAL FIX WITH NEW: TRUE) ---
 export const updateProfile = async (req, res) => {
     try {
         const userId = req.user?._id || req.user?.id; 
-        if (!userId) {
-            return res.status(401).json({ success: false, message: "Not authorized" });
-        }
+        if (!userId) return res.status(401).json({ success: false, message: "Not authorized" });
 
-        const { name, email, mobile, skills, summary, bio, experience, location, experienceLevel, companyDetails } = req.body;
+        const { name, email, mobile, phoneNumber, skills, summary, bio, location } = req.body;
         
+        // Data mapping for update
         const updateData = {};
-        
         if (name) updateData.name = name;
         if (email) updateData.email = email;
-        if (mobile !== undefined) updateData.mobile = mobile;
-        if (location !== undefined) updateData.location = location;
-        if (experienceLevel) updateData.experienceLevel = experienceLevel;
+        if (location) updateData.location = location;
+        if (summary || bio) updateData.summary = summary || bio;
         
-        if (summary !== undefined || bio !== undefined) {
-            const finalBio = summary || bio || "";
-            updateData.summary = finalBio;
-            updateData.bio = finalBio;
+        // Mobile mapping fix
+        if (mobile || phoneNumber) {
+            updateData.mobile = mobile || phoneNumber;
         }
 
-        if (skills !== undefined) {
-            if (typeof skills === 'string') {
-                updateData.skills = skills.split(',').map(s => s.trim().toLowerCase()).filter(s => s !== "");
-            } else if (Array.isArray(skills)) {
-                updateData.skills = skills.map(s => s.toString().toLowerCase().trim());
-            }
+        if (skills) {
+            updateData.skills = Array.isArray(skills) ? skills : skills.split(',').map(s => s.trim());
         }
 
-        if (experience !== undefined) {
-            updateData.experience = Array.isArray(experience) ? experience : [];
-        }
-        
-        if (companyDetails) updateData.companyDetails = companyDetails;
-
-        const user = await User.findByIdAndUpdate(
+        // 🚨 CRITICAL: Using findByIdAndUpdate with { new: true } to get fresh data
+        const updatedUser = await User.findByIdAndUpdate(
             userId, 
             { $set: updateData }, 
-            { new: true, runValidators: false } 
-        ).select('-password');
+            { new: true, runValidators: false }
+        ).select("-password");
 
-        if (!user) {
+        if (!updatedUser) {
             return res.status(404).json({ success: false, message: "User not found" });
-        }
-
-        const userData = user.toObject();
-        if (userData.resume) {
-            userData.resumeUrl = `${req.protocol}://${req.get('host')}/uploads/resumes/${userData.resume}`;
         }
 
         res.status(200).json({ 
             success: true, 
             message: "Profile updated successfully",
-            user: userData
+            user: updatedUser // Frontend will receive this and update state
         });
-
     } catch (error) {
         console.error("🔥 UPDATE ERROR:", error);
-        return res.status(500).json({ 
-            success: false, 
-            message: "Sync Failed: " + error.message 
-        });
+        res.status(500).json({ success: false, message: error.message });
     }
 };
 
-// --- 5. FORGOT PASSWORD ---
+// --- 5. FORGOT/RESET/LOGOUT/DELETE ---
 export const forgotPassword = async (req, res) => {
   try {
     const { email } = req.body;
     const user = await User.findOne({ email });
+    if (!user) return res.status(404).json({ success: false, message: "User not found." });
 
-    if (!user) {
-      return res.status(404).json({ success: false, message: "User not found with this email." });
-    }
-
-    // 1. Generate Random Token
     const resetToken = crypto.randomBytes(20).toString('hex');
-
-    // 2. Hash and set to resetPasswordToken field in DB
     user.resetPasswordToken = crypto.createHash('sha256').update(resetToken).digest('hex');
-
-    // 3. Set expire time (15 minutes)
     user.resetPasswordExpire = Date.now() + 15 * 60 * 1000; 
 
     await user.save({ validateBeforeSave: false });
-
-    // 4. Create reset URL (Frontend URL)
-    // Localhost ki jagah IP ka use karein (agar mobile se test karna hai)
-const resetUrl = `http://192.168.1.5:5173/reset-password/${resetToken}`;
-    const message = `You requested a password reset for Orbit Nodes. Please click on the link below:\n\n${resetUrl}\n\nIf you did not request this, please ignore this email.`;
+    const resetUrl = `${req.protocol}://${req.get('host')}/reset-password/${resetToken}`;
+    const message = `Password reset link: ${resetUrl}`;
 
     try {
-      // 5. Send Email via Nodemailer utility
-      await sendEmail({
-        email: user.email,
-        subject: 'Orbit Nodes - Password Reset Request',
-        message
-      });
-
-      res.status(200).json({ success: true, message: "Reset link sent to your email." });
+      await sendEmail({ email: user.email, subject: 'Password Reset', message });
+      res.status(200).json({ success: true, message: "Link sent." });
     } catch (err) {
-      // Cleanup tokens if email fails
       user.resetPasswordToken = undefined;
       user.resetPasswordExpire = undefined;
       await user.save({ validateBeforeSave: false });
-      return res.status(500).json({ success: false, message: "Email could not be sent. Check your SMTP settings." });
+      return res.status(500).json({ success: false, message: "Email failed." });
     }
-  } catch (error) {
-    res.status(500).json({ success: false, message: error.message });
-  }
+  } catch (error) { res.status(500).json({ success: false, message: error.message }); }
 };
 
-// --- 6. RESET PASSWORD ---
 export const resetPassword = async (req, res) => {
   try {
-    // Get hashed token from URL params
     const resetPasswordToken = crypto.createHash('sha256').update(req.params.token).digest('hex');
-
-    // Find user with valid token and not expired
-    const user = await User.findOne({
-      resetPasswordToken,
-      resetPasswordExpire: { $gt: Date.now() }
-    });
-
-    if (!user) {
-      return res.status(400).json({ success: false, message: "Invalid or expired reset token." });
-    }
-
-    // Set new password (Model's .pre('save') will hash this)
+    const user = await User.findOne({ resetPasswordToken, resetPasswordExpire: { $gt: Date.now() } });
+    if (!user) return res.status(400).json({ success: false, message: "Invalid token." });
     user.password = req.body.password;
     user.resetPasswordToken = undefined;
     user.resetPasswordExpire = undefined;
-    
     await user.save();
-
-    res.status(200).json({ success: true, message: "Password updated successfully!" });
-  } catch (error) {
-    res.status(500).json({ success: false, message: error.message });
-  }
+    res.status(200).json({ success: true, message: "Updated!" });
+  } catch (error) { res.status(500).json({ success: false, message: error.message }); }
 };
 
-// --- 7. LOGOUT ---
 export const logout = async (req, res) => {
   res.cookie('token', 'none', { expires: new Date(Date.now() + 5 * 1000), httpOnly: true });
-  res.status(200).json({ success: true, message: 'Logged out successfully' });
+  res.status(200).json({ success: true, message: 'Logged out' });
 };
 
-// --- 8. DELETE RESUME ---
 export const deleteResume = async (req, res) => {
     try {
         const userId = req.user?._id || req.user?.id;
         await User.findByIdAndUpdate(userId, { $set: { resumes: [], resume: null } });
-        res.status(200).json({ success: true, message: "Resume removed" });
-    } catch (error) {
-        res.status(500).json({ success: false, message: error.message });
-    }
+        res.status(200).json({ success: true, message: "Removed" });
+    } catch (error) { res.status(500).json({ success: false, message: error.message }); }
 };

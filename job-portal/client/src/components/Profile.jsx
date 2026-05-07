@@ -1,15 +1,16 @@
 import React, { useState } from 'react';
 import { 
   User, CheckCircle2, Plus, X, 
-  AlignLeft, Zap, FileText, Eye, Trash2, UploadCloud 
+  AlignLeft, Zap, FileText, Eye, Trash2, UploadCloud, Phone 
 } from 'lucide-react';
-import api from '../api/axios';
+import api, { BASE_URL } from '../api/axios';
 import toast from 'react-hot-toast';
 
 const Profile = ({ profileData, setProfileData }) => {
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [newSkill, setNewSkill] = useState("");
 
+  // --- 1. SKILLS LOGIC ---
   const handleAddSkill = () => {
     if (newSkill.trim() && !profileData?.skills?.includes(newSkill.trim())) {
       setProfileData({
@@ -27,14 +28,12 @@ const Profile = ({ profileData, setProfileData }) => {
     });
   };
 
-  // 📄 RESUME UPLOAD HANDLER
+  // --- 2. RESUME VAULT LOGIC ---
   const handleResumeUpload = async (e) => {
     const file = e.target.files[0];
     if (!file) return;
-
     const formData = new FormData();
     formData.append('resume', file);
-
     const loadingToast = toast.loading("Uploading resume to Orbit...");
     try {
       const res = await api.post('/auth/upload-resume', formData, {
@@ -42,19 +41,16 @@ const Profile = ({ profileData, setProfileData }) => {
       });
       if (res.data.success) {
         toast.success("Resume Vault Updated!", { id: loadingToast });
-        setProfileData({ ...profileData, resume: res.data.resumePath });
+        setProfileData({ ...profileData, resume: res.data.resumePath || res.data.resume });
       }
     } catch (err) {
-      // ✅ FIXED: Using 'err' to log the issue
       console.error("Upload Error:", err);
       toast.error("Upload failed", { id: loadingToast });
     }
   };
 
-  // 🗑️ RESUME DELETE HANDLER
   const handleDeleteResume = async () => {
     if (!window.confirm("Are you sure you want to remove your resume?")) return;
-    
     const loadingToast = toast.loading("Removing resume...");
     try {
       const res = await api.delete('/auth/delete-resume');
@@ -63,25 +59,36 @@ const Profile = ({ profileData, setProfileData }) => {
         setProfileData({ ...profileData, resume: null });
       }
     } catch (err) {
-      // ✅ FIXED: Using 'err' to log the issue
       console.error("Delete Error:", err);
       toast.error("Delete failed", { id: loadingToast });
     }
   };
 
+  // --- 3. PROFILE SYNC LOGIC (The Fix) ---
   const handleSave = async () => {
     const loadingToast = toast.loading("Syncing with Orbit...");
     try {
-      const res = await api.put('/auth/profile', profileData);
+      // Dono keys bhej rahe hain backend compatibility ke liye
+      const payload = {
+        ...profileData,
+        phoneNumber: profileData.mobile || profileData.phoneNumber
+      };
+      
+      const res = await api.put('/auth/profile', payload);
+      
       if (res.data.success) {
-        toast.success("AI Profile Synced!", { id: loadingToast });
-        setProfileData(res.data.user || res.data.data);
+        toast.success("Profile Updated!", { id: loadingToast });
+        
+        // 🚨 Yahan backend se aaya fresh data (updatedUser) state mein dal rahe hain
+        // Taki UI turant naya number show kare
+        const updatedUser = res.data.user || res.data.data;
+        setProfileData(updatedUser); 
+        
         setIsModalOpen(false);
       }
     } catch (err) {
-      // Isme 'err' pehle se use ho raha tha, toh ye sahi hai
-      console.error("Backend Error:", err.response?.data);
-      toast.error(err.response?.data?.message || "Server Error", { id: loadingToast });
+      console.error("Update Failed:", err);
+      toast.error(err.response?.data?.message || "Update Failed", { id: loadingToast });
     }
   };
 
@@ -100,6 +107,10 @@ const Profile = ({ profileData, setProfileData }) => {
             <p className="text-slate-400 font-bold tracking-widest text-xs uppercase mt-2">
               {profileData?.email}
             </p>
+            {/* DISPLAY PHONE NUMBER: Dono fields check kar rahe hain */}
+            <p className="text-blue-600 font-bold text-sm mt-1 flex items-center gap-2">
+               <Phone size={14}/> {profileData?.mobile || profileData?.phoneNumber || "No Phone Linked"}
+            </p>
           </div>
         </div>
         <button 
@@ -110,7 +121,7 @@ const Profile = ({ profileData, setProfileData }) => {
         </button>
       </div>
 
-      {/* 📄 NEW: RESUME VAULT SECTION */}
+      {/* Resume Vault Section */}
       <div className="bg-white p-8 rounded-[3rem] border shadow-sm flex flex-col md:flex-row items-center justify-between gap-4">
         <div className="flex items-center gap-4">
           <div className="p-4 bg-blue-50 text-blue-600 rounded-2xl">
@@ -119,26 +130,17 @@ const Profile = ({ profileData, setProfileData }) => {
           <div>
             <h3 className="text-sm font-black uppercase tracking-widest text-slate-900">Resume Vault</h3>
             <p className="text-xs text-slate-400 font-medium">
-              {profileData?.resume ? "Your resume is active and visible to recruiters." : "No resume uploaded yet."}
+              {profileData?.resume ? "Your resume is active." : "No resume uploaded yet."}
             </p>
           </div>
         </div>
-
         <div className="flex items-center gap-3">
           {profileData?.resume ? (
             <>
-              <a 
-                href={`http://localhost:8000/${profileData.resume}`} 
-                target="_blank" 
-                rel="noreferrer"
-                className="flex items-center gap-2 px-6 py-3 bg-slate-100 text-slate-700 rounded-xl font-bold text-xs uppercase hover:bg-slate-200 transition-all"
-              >
+              <a href={`${BASE_URL}/${profileData.resume}`} target="_blank" rel="noreferrer" className="flex items-center gap-2 px-6 py-3 bg-slate-100 text-slate-700 rounded-xl font-bold text-xs uppercase hover:bg-slate-200 transition-all">
                 <Eye size={16} /> View
               </a>
-              <button 
-                onClick={handleDeleteResume}
-                className="p-3 bg-red-50 text-red-500 rounded-xl hover:bg-red-100 transition-all"
-              >
+              <button onClick={handleDeleteResume} className="p-3 bg-red-50 text-red-500 rounded-xl hover:bg-red-100 transition-all">
                 <Trash2 size={18} />
               </button>
             </>
@@ -151,6 +153,7 @@ const Profile = ({ profileData, setProfileData }) => {
         </div>
       </div>
 
+      {/* Info Grid */}
       <div className="grid grid-cols-1 md:grid-cols-3 gap-8">
         <div className="md:col-span-2 bg-white p-10 rounded-[3rem] border shadow-sm">
           <h3 className="text-[10px] font-black text-slate-400 uppercase tracking-[0.3em] mb-6 flex items-center gap-2">
@@ -185,15 +188,33 @@ const Profile = ({ profileData, setProfileData }) => {
             <h2 className="text-3xl font-black uppercase italic tracking-tighter mb-8">Update Profile</h2>
             
             <div className="space-y-6 overflow-y-auto max-h-[60vh] pr-2">
-              <textarea 
-                value={profileData?.summary || ""}
-                onChange={(e) => setProfileData({...profileData, summary: e.target.value})}
-                className="w-full p-6 bg-slate-50 rounded-[2rem] border-none font-medium outline-none focus:ring-2 ring-blue-600"
-                placeholder="Describe your journey..."
-                rows="4"
-              />
+              {/* Phone Input */}
+              <div className="space-y-2">
+                <label className="text-[10px] font-black uppercase tracking-widest text-slate-400 ml-4">Phone Number</label>
+                <input 
+                  type="text"
+                  value={profileData?.mobile || profileData?.phoneNumber || ""}
+                  onChange={(e) => setProfileData({...profileData, phoneNumber: e.target.value, mobile: e.target.value})}
+                  className="w-full p-5 bg-slate-50 rounded-2xl font-bold outline-none border-none focus:ring-2 ring-blue-600"
+                  placeholder="Enter phone number..."
+                />
+              </div>
+
+              {/* Summary Input */}
+              <div className="space-y-2">
+                <label className="text-[10px] font-black uppercase tracking-widest text-slate-400 ml-4">Professional Summary</label>
+                <textarea 
+                  value={profileData?.summary || ""}
+                  onChange={(e) => setProfileData({...profileData, summary: e.target.value})}
+                  className="w-full p-6 bg-slate-50 rounded-[2rem] border-none font-medium outline-none focus:ring-2 ring-blue-600"
+                  placeholder="Describe your journey..."
+                  rows="3"
+                />
+              </div>
               
+              {/* Skills Input */}
               <div className="space-y-4">
+                <label className="text-[10px] font-black uppercase tracking-widest text-slate-400 ml-4">Skills</label>
                 <div className="flex flex-wrap gap-2 mb-4">
                   {profileData?.skills?.map((skill) => (
                     <div key={skill} className="flex items-center gap-2 bg-blue-50 text-blue-600 px-3 py-2 rounded-xl font-bold text-xs uppercase border border-blue-100">

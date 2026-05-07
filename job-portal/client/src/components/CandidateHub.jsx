@@ -1,5 +1,5 @@
 import React, { useEffect, useCallback, useState } from 'react';
-import api from '../api/axios'; 
+import api, { getResumeUrl } from '../api/axios'; 
 import { FiRefreshCw, FiCheckCircle, FiXCircle, FiUser, FiFileText } from 'react-icons/fi';
 import { toast } from 'react-hot-toast'; 
 
@@ -29,64 +29,45 @@ const CandidateHub = () => {
         fetchApps();
     }, []); 
 
-   const onUpdate = async (id, status) => {
-    console.log("🟢 1. Clicked Status Update:", { id, status }); // Check if button works
-
-    try {
-        setUpdatingId(id); 
-        console.log("🟡 2. Sending Request to Backend...");
-        
-        // Agar aapka backend base URL sahi hai, to ye trigger hona chahiye
-        const response = await api.post(`/application/status/${id}/update`, { status });
-        
-        console.log("✅ 3. Backend Response:", response.data);
-
-        if (response.data.success) {
-            toast.success(`Candidate ${status === 'accepted' ? 'Accepted' : 'Rejected'}`);
-            fetchApps(); 
-        }
-    } catch (err) {
-        console.error("❌ 4. Update Error Details:", {
-            message: err.message,
-            response: err.response?.data,
-            status: err.response?.status
-        });
-        toast.error(err.response?.data?.message || "Status update failed");
-    } finally {
-        setUpdatingId(null);
-        console.log("⚪ 5. Update Cycle Finished.");
-    }
-};
-
-    const openResume = (e, app) => {
-        e.preventDefault(); 
-        e.stopPropagation(); 
-
-        const resumePath = app.resume || app.user?.resume || app.applicant?.resume || app.resumeUrl;
-
-        if (resumePath) {
-            let finalUrl;
-            if (resumePath.startsWith('http')) {
-                finalUrl = resumePath;
-            } else {
-                const cleanPath = resumePath.startsWith('/') ? resumePath.substring(1) : resumePath;
-                const hasResumesFolder = cleanPath.includes('resumes/');
-                
-                if (hasResumesFolder) {
-                    finalUrl = `http://localhost:8000/uploads/${cleanPath}`;
-                } else {
-                    finalUrl = `http://localhost:8000/uploads/resumes/${cleanPath}`;
-                }
-            }
+    const onUpdate = async (id, status) => {
+        console.log("🟢 1. Clicked Status Update:", { id, status });
+        try {
+            setUpdatingId(id); 
+            console.log("🟡 2. Sending Request to Backend...");
+            const response = await api.post(`/application/status/${id}/update`, { status });
             
-            console.log("🚀 Opening Resume URL:", finalUrl);
-            window.open(finalUrl, '_blank', 'noopener,noreferrer');
-        } else {
-            toast.error("Resume not found for this candidate");
+            console.log("✅ 3. Backend Response:", response.data);
+
+            if (response.data.success) {
+                toast.success(`Candidate ${status === 'accepted' ? 'Accepted' : 'Rejected'}`);
+                fetchApps(); 
+            }
+        } catch (err) {
+            console.error("❌ 4. Update Error Details:", err.response?.data);
+            toast.error(err.response?.data?.message || "Status update failed");
+        } finally {
+            setUpdatingId(null);
         }
     };
 
-    return (
+    // --- UPDATED OPEN RESUME FUNCTION ---
+    // --- UPDATED OPEN RESUME FUNCTION ---
+const openResume = (e, app) => {
+    e.preventDefault();
+    // Saare possible fields check karein jahan resume path ho sakta hai
+    const resumePath = app.resume || app.user?.resume || app.applicant?.resume || app.resumeUrl;
+
+    if (resumePath) {
+        // Axios file wala helper function use karein (Best Practice)
+        const finalUrl = getResumeUrl(resumePath);
+        
+        console.log("🚀 Opening Resume from:", finalUrl);
+        window.open(finalUrl, '_blank', 'noopener,noreferrer');
+    } else {
+        toast.error("Resume file not found for this candidate!");
+    }
+};
+  return (
         <div className="p-6 max-w-7xl mx-auto min-h-screen text-left font-sans">
             <div className="flex justify-between items-end mb-10">
                 <div>
@@ -133,7 +114,6 @@ const CandidateHub = () => {
                                                     <div className="h-12 w-12 rounded-2xl bg-slate-100 flex items-center justify-center text-slate-400 group-hover:bg-blue-600 group-hover:text-white transition-all duration-300">
                                                         <FiUser size={20} />
                                                     </div>
-                                                    {/* Updated Applicant Info with Email */}
                                                     <div className="flex flex-col">
                                                         <span className="font-bold text-slate-800 text-lg tracking-tight">
                                                             {app.user?.name || app.applicant?.name || "Name Not Loaded"}
@@ -157,7 +137,7 @@ const CandidateHub = () => {
                                                         <FiFileText size={16} /> View Resume / CV
                                                     </button>
                                                 ) : (
-                                                    <span className="text-slate-300 text-[10px] uppercase font-bold italic">No Resume Uploaded</span>
+                                                    <span className="text-slate-300 text-[10px] uppercase font-bold italic">No Resume</span>
                                                 )}
                                             </td>
 
@@ -177,7 +157,6 @@ const CandidateHub = () => {
                                                         onClick={() => onUpdate(app._id, 'accepted')} 
                                                         disabled={updatingId === app._id}
                                                         className={`p-3 transition-colors ${app.status === 'accepted' ? 'text-emerald-500' : 'text-slate-400 hover:text-emerald-600'}`}
-                                                        title="Accept Candidate"
                                                     >
                                                         <FiCheckCircle size={22}/>
                                                     </button>
@@ -185,7 +164,6 @@ const CandidateHub = () => {
                                                         onClick={() => onUpdate(app._id, 'rejected')} 
                                                         disabled={updatingId === app._id}
                                                         className={`p-3 transition-colors ${app.status === 'rejected' ? 'text-rose-500' : 'text-slate-400 hover:text-rose-600'}`}
-                                                        title="Reject Candidate"
                                                     >
                                                         <FiXCircle size={22}/>
                                                     </button>

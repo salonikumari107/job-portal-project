@@ -1,9 +1,10 @@
 import axios from 'axios';
 import toast from 'react-hot-toast';
 
-// ✅ Dynamic URL: Local par 8001 use karega, Render par Environment Variable
-// Agar aapne Render par VITE_API_URL set nahi kiya hai, toh niche di gayi line ko replace karein
-const RENDER_BACKEND_URL = "https://job-portal-project-27ux.onrender.com"; // 👈 Yahan apna asli Render Backend URL dalein
+// ✅ Port 10000 Fix: 
+// 1. Agar local hai toh 10000 use hoga.
+// 2. Agar Render par hai toh aapka live backend URL.
+const RENDER_BACKEND_URL = "https://job-portal-project-27ux.onrender.com"; // 👈 Yahan apna sahi Render Backend URL confirm kar lein
 const LOCAL_URL = "http://localhost:8001";
 
 const BASE_URL = import.meta.env.MODE === 'production' ? RENDER_BACKEND_URL : LOCAL_URL;
@@ -39,7 +40,7 @@ api.interceptors.response.use(
         : "Network Error! Server se connect nahi ho pa raha (Check Port 8001).";
       
       toast.error(errorMsg);
-      console.error("❌ Connection Refused: Ensure Backend is running.");
+      console.error("❌ Connection Refused: Ensure Backend is running on port 8001.");
     }
 
     // B. Unauthorized Check (401)
@@ -75,14 +76,14 @@ api.interceptors.response.use(
 export const getResumeUrl = (resumePath) => {
     if (!resumePath) return "#";
 
-    // Purane localhost:8000 paths ko fix karne ke liye
-    if (resumePath.includes('localhost:8000') || resumePath.includes('localhost:8001')) {
+    // Agar path mein full URL hai toh usme se filename nikal kar naye BASE_URL (10000) ke saath jodte hain
+    if (resumePath.includes('http')) {
         const parts = resumePath.split('/');
         const filename = parts[parts.length - 1];
         return `${BASE_URL}/uploads/${filename}`;
     }
 
-    const cleanPath = resumePath.startsWith('uploads/') ? resumePath : `uploads/${resumePath}`;
+    const cleanPath = resumePath.startsWith('uploads/') ? resumePath : `uploads/${filename}`;
     return `${BASE_URL}/${cleanPath}`;
 };
 
