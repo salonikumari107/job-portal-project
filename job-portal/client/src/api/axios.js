@@ -1,12 +1,12 @@
 import axios from 'axios';
 import toast from 'react-hot-toast';
 
-// ✅ Port 10000 Fix: 
-// 1. Agar local hai toh 10000 use hoga.
-// 2. Agar Render par hai toh aapka live backend URL.
-const RENDER_BACKEND_URL = "https://job-portal-project-27ux.onrender.com"; // 👈 Yahan apna sahi Render Backend URL confirm kar lein
-const LOCAL_URL = "https://job-portal-backend-new-jjua.onrender.com";
+// ✅ Fixed URLs for Render Deployment
+// Production mein 'jjua' wala live backend use hoga.
+const RENDER_BACKEND_URL = "https://job-portal-backend-new-jjua.onrender.com"; 
+const LOCAL_URL = "http://localhost:8001"; // Local testing ke liye localhost use karein
 
+// Render par 'production' mode hota hai, isliye RENDER_BACKEND_URL select hoga
 const BASE_URL = import.meta.env.MODE === 'production' ? RENDER_BACKEND_URL : LOCAL_URL;
 
 const api = axios.create({
@@ -40,7 +40,7 @@ api.interceptors.response.use(
         : "Network Error! Server se connect nahi ho pa raha (Check Port 8001).";
       
       toast.error(errorMsg);
-      console.error("❌ Connection Refused: Ensure Backend is running on port 8001.");
+      console.error("❌ Connection Refused: Ensure Backend is running correctly.");
     }
 
     // B. Unauthorized Check (401)
@@ -76,14 +76,13 @@ api.interceptors.response.use(
 export const getResumeUrl = (resumePath) => {
     if (!resumePath) return "#";
 
-    // Agar path mein full URL hai toh usme se filename nikal kar naye BASE_URL (10000) ke saath jodte hain
     if (resumePath.includes('http')) {
         const parts = resumePath.split('/');
         const filename = parts[parts.length - 1];
         return `${BASE_URL}/uploads/${filename}`;
     }
 
-    const cleanPath = resumePath.startsWith('uploads/') ? resumePath : `uploads/${filename}`;
+    const cleanPath = resumePath.startsWith('uploads/') ? resumePath : `uploads/${resumePath}`;
     return `${BASE_URL}/${cleanPath}`;
 };
 
